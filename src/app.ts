@@ -27,7 +27,7 @@ const {
 
 const cors = require("cors");
 
-var corsOptions = {
+let corsOptions = {
   origin: 'http://localhost:3000',
   optionsSuccessStatus: 200
 }
