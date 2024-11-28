@@ -29,7 +29,7 @@ export default class {
   static async deleteCard(...[req, res, next]: TCardCtrlParams) {
     const card = await Card.findById(req.params.cardId);
 
-    if (!card) return next(CARD.DELETE[BAD_REQUEST_400]);
+    if (!card) return next(CARD.DELETE[NOT_FOUND_404]);
 
     if (req.user?._id === card.owner.toString()) {
       return res.send(await Card.findByIdAndDelete(req.params.cardId));
