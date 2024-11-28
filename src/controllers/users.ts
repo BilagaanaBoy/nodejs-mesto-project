@@ -28,11 +28,9 @@ const createToken = (
   options?: jwt.SignOptions,
 ) => jwt.sign(payload, secretOrPrivateKey || JWT_SECRET, options);
 
-
 export default class {
   @catchError(USER.GET)
   static async getUsers(...[_, res]: TUserCtrlParams) {
-    console.log(USER);
     return res.send(await User.find());
   }
 

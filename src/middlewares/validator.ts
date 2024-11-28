@@ -2,7 +2,6 @@ import { Joi, Segments, celebrate } from 'celebrate';
 import { TModelSettings } from '../utils/types';
 import { ERROR_MESSAGES } from '../utils/constants';
 
-
 export default function validator(
   segment: Segments,
   schema: TModelSettings['validationSchema'][string],

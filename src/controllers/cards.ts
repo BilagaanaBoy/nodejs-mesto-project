@@ -8,13 +8,11 @@ import { HTTP_CODES, TCardCtrlParams } from '../utils/types';
 const { CARD } = ERROR_MESSAGES;
 const { BAD_REQUEST_400, NOT_FOUND_404, FORBIDDEN_403 } = HTTP_CODES;
 
-
 export default class {
   @catchError()
   static async getCards(...[_, res]: TCardCtrlParams) {
     return res.send(await Card.find());
   }
-
 
   @catchError(CARD.CREATE, new ValidationError(CARD.CREATE[BAD_REQUEST_400]))
   static async createCard(...[req, res]: TCardCtrlParams) {
@@ -23,7 +21,6 @@ export default class {
     const card = await Card.create({ name, link, owner });
     return res.status(HTTP_CODES.CREATED_201).send(card);
   }
-
 
   @catchError(CARD.DELETE, new ValidationError(CARD.DELETE[NOT_FOUND_404]))
   static async deleteCard(...[req, res, next]: TCardCtrlParams) {
@@ -37,7 +34,6 @@ export default class {
     return next(CARD.DELETE[FORBIDDEN_403]);
   }
 
-
   @catchError(CARD.LIKE, new ValidationError(CARD.LIKE[BAD_REQUEST_400]))
   static async likeCard(...[req, res, next]: TCardCtrlParams) {
     const card = await Card.findByIdAndUpdate(
@@ -50,7 +46,6 @@ export default class {
 
     return res.send(card);
   }
-
 
   @catchError(CARD.LIKE, new ValidationError(CARD.LIKE[BAD_REQUEST_400]))
   static async dislikeCard(...[req, res, next]: TCardCtrlParams) {

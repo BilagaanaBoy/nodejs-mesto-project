@@ -42,7 +42,7 @@ export const ERROR_MESSAGES = {
     },
     NOTFOUND: {
       [NOT_FOUND_404]: 'Страница не найдена.',
-    }
+    },
   },
   USER: {
     VALIDATION: {
