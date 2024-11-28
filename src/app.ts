@@ -2,22 +2,26 @@ import express from 'express';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
 
-import { DEFAULT_BASE_PATH, DEFAULT_MONGO_DB_NAME, DEFAULT_MONGO_DB_PATH, DEFAULT_PORT} from './utils/constants';
+import { DEFAULT_BASE_PATH, DEFAULT_MONGO_DB_NAME, DEFAULT_MONGO_DB_PATH, DEFAULT_PORT } from './utils/constants';
 import { HTTP_CODES } from './utils/types';
 import { ERROR_MESSAGES } from './utils/constants';
 
-import userRouter from './routes/users';
 import cardRouter from './routes/cards';
-import index from './routes/index';
+import userRouter from './routes/users';
+import auth from './routes/auth';
 
-// import NotFoundError from './errors/not-found-error';
-
+import handleError from './errors/error-handler';
 
 const { GENERAL } = ERROR_MESSAGES;
 
 const {
   NOT_FOUND_404,
 } = HTTP_CODES;
+
+import limiter from './middlewares/limiter';
+import bodyParserMiddleware from './middlewares/body-parser-middleware';
+import authProtect from './middlewares/auth-protect';
+import { errorLogger, requestLogger } from './middlewares/logger';
 
 const {
   PORT = DEFAULT_PORT,
@@ -27,7 +31,7 @@ const {
 
 const cors = require("cors");
 
-let corsOptions = {
+var corsOptions = {
   origin: 'http://localhost:3000',
   optionsSuccessStatus: 200
 }
@@ -35,18 +39,25 @@ let corsOptions = {
 const app = express();
 
 app.use(cors(corsOptions));
+app.use(bodyParserMiddleware);
 app.use(express.urlencoded({ extended: true }));
 
 mongoose.connect(DATABASE);
 
 app.use(helmet());
+app.use(limiter);
 
-app.use('/', index);
+app.use(requestLogger);
+
+app.use('/', auth);
+app.use(authProtect);
 app.use('/users', userRouter);
 app.use('/cards', cardRouter);
 
 app.all('*', (_, __, next) => next(GENERAL.NOTFOUND[NOT_FOUND_404]));
 
+app.use(errorLogger);
+app.use(handleError);
 
 app.listen(PORT, () => {
   console.table({

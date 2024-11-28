@@ -1,4 +1,5 @@
 import { Joi } from 'celebrate';
+import isEmail from 'validator/lib/isEmail';
 import isURL from 'validator/lib/isURL';
 
 import { ALLOWED_SYMBOLS_IN_LINK } from './constants';
@@ -18,11 +19,12 @@ const onCheckUrlByReg = (link: string) => linkReg.test(onNormalizeUrl(link));
 
 export default function validation(
   message: string,
-  typeValidation: 'url',
+  typeValidation: 'email' | 'url',
 ) {
   return (value: string, helpers: Joi.CustomHelpers) => {
     // prettier-ignore
     switch (typeValidation) {
+      case 'email': if (isEmail(value)) return value; break;
       case 'url': if (isURL(onNormalizeUrl(value)) && onCheckUrlByReg(value)) return value; break;
       default: break;
     }

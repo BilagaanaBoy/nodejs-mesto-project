@@ -1,19 +1,42 @@
-import User from '../models/user';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-import { HTTP_CODES, TUserCtrlParams } from '../utils/types';
-import { ERROR_MESSAGES } from '../utils/constants';
+import User from '../models/user';
+import NotFoundError from '../errors/not-found-error';
+import ValidationError from '../errors/validation-error';
+import UnauthorizedError from '../errors/unauthorized-error';
+import ConflictError from '../errors/conflict-error';
+
+import catchError from '../utils/decorators';
+import { HTTP_CODES, TSessionRequest, TUserCtrlParams } from '../utils/types';
+import { DEFAULT_JWT_SECRET, DEFAULT_SALT_LENGTH, ERROR_MESSAGES } from '../utils/constants';
 
 const { USER } = ERROR_MESSAGES;
-const { NOT_FOUND_404 } = HTTP_CODES;
+// prettier-ignore
+const { SALT_LENGTH = DEFAULT_SALT_LENGTH, JWT_SECRET = DEFAULT_JWT_SECRET } = process.env;
+// prettier-ignore
+const {
+  CREATED_201,
+  UNAUTHORIZED_401,
+  BAD_REQUEST_400,
+  NOT_FOUND_404,
+} = HTTP_CODES;
 
+const createToken = (
+  payload: TSessionRequest['user'],
+  secretOrPrivateKey?: jwt.Secret,
+  options?: jwt.SignOptions,
+) => jwt.sign(payload, secretOrPrivateKey || JWT_SECRET, options);
 
 
 export default class {
+  @catchError(USER.GET)
   static async getUsers(...[_, res]: TUserCtrlParams) {
+    console.log(USER);
     return res.send(await User.find());
   }
 
-
+  @catchError(USER.GET, new ValidationError(USER.GET[BAD_REQUEST_400]))
   static async getUser(...[req, res, next]: TUserCtrlParams) {
     const user = await User.findById(req.params.userId);
     return user
@@ -21,9 +44,37 @@ export default class {
       : next(USER.GET[NOT_FOUND_404]);
   }
 
+  @catchError(USER.CREATE, new ConflictError())
+  static async createUser(...[{ body }, res]: TUserCtrlParams) {
+    // prettier-ignore
+    const {
+      email,
+      password,
+    } = body;
+    // prettier-ignore
+    const {
+      _id,
+      name,
+      about,
+      avatar,
+    } = await User.create({
+      email,
+      password: await bcrypt.hash(password, SALT_LENGTH),
+    });
 
+    return res.status(CREATED_201).send({
+      _id,
+      name,
+      about,
+      avatar,
+      email,
+    });
+  }
+
+  @catchError(USER.PROFILE)
   static async updateProfile(...[req, res, next]: TUserCtrlParams) {
     const { name, about } = req.body;
+
     const user = await User.findByIdAndUpdate(
       req.user?._id,
       { name, about },
@@ -35,9 +86,10 @@ export default class {
     return res.send({ name, about });
   }
 
-
+  @catchError(USER.AVATAR)
   static async updateAvatar(...[req, res, next]: TUserCtrlParams) {
     const { avatar } = req.body;
+
     const user = await User.findByIdAndUpdate(
       req.user?._id,
       { avatar },
@@ -49,7 +101,24 @@ export default class {
     return res.send({ avatar });
   }
 
+  @catchError(USER.LOGIN, new UnauthorizedError(USER.LOGIN[UNAUTHORIZED_401]))
+  static async login(...[req, res]: TUserCtrlParams) {
+    const { email, password } = req.body;
+    const { _id } = await User.findUserByCredentials(email, password);
 
+    const token = createToken({ _id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.cookie('JWT', token, {
+      maxAge: 3600000,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+    });
+
+    return res.send({ token });
+  }
+
+  @catchError(USER.GET, new NotFoundError(USER.GET[NOT_FOUND_404]))
   static async getMe(...[req, res]: TUserCtrlParams) {
     return res.send(await User.find({ _id: req.user?._id }));
   }

@@ -1,20 +1,27 @@
 import { Router } from 'express';
-import cardController from '../controllers/cards';
+import { Segments } from 'celebrate';
 
+import cardController from '../controllers/cards';
+import { card } from '../models/card';
+import validator from '../middlewares/validator';
 
 // prettier-ignore
 const {
   getCards,
-  createCard,
   deleteCard,
   likeCard,
-  dislikeCard
+  dislikeCard,
+  createCard,
 } = cardController;
 
 const router = Router();
 
 router.get('/', getCards);
-router.post('/', createCard);
+router.post(
+  '/',
+  validator(Segments.BODY, card.validationSchema.create),
+  createCard,
+);
 router.delete('/:cardId', deleteCard);
 router.put('/:cardId/likes', likeCard);
 router.delete('/:cardId/likes', dislikeCard);

@@ -1,12 +1,14 @@
 import mongoose, { Model } from 'mongoose';
 import { Joi } from 'celebrate';
+import bcrypt from 'bcryptjs';
 
-import { IUser, TModelSettings } from '../utils/types';
+import { HTTP_CODES, IUser, TModelSettings } from '../utils/types';
 import {
   ERROR_MESSAGES,
   DEFAULT_USER_SETTINGS as DEFAULT,
 } from '../utils/constants';
 import validation from '../utils/validation';
+import UnauthorizedError from '../errors/unauthorized-error';
 
 const { USER, GENERAL } = ERROR_MESSAGES;
 
@@ -38,8 +40,28 @@ class UserModelSettings<
       avatar: Joi.string()
         .label(GENERAL.LABELS.AVATAR)
         .custom(validation(USER.VALIDATION.AVATAR, 'url')),
+      email: Joi.string()
+        .label(GENERAL.LABELS.EMAIL)
+        .required()
+        .custom(validation(USER.VALIDATION.EMAIL, 'email')),
+      password: Joi.string().label(GENERAL.LABELS.PASSWORD).required(),
     },
   };
+
+  constructor() {
+    this.validationSchema.updateProfile = this.createValidationSchema(
+      ['name', 'about'],
+    );
+    this.validationSchema.updateAvatar = this.createValidationSchema(
+      'avatar',
+    );
+    this.validationSchema.signin = this.createValidationSchema(
+      ['email', 'password'],
+    );
+    this.validationSchema.signup = this.createValidationSchema(
+      ['email', 'password'],
+    );
+  }
 
   schema = new mongoose.Schema<T, M, IUserMethods>(
     {
@@ -62,9 +84,43 @@ class UserModelSettings<
         required: true,
         default: DEFAULT.AVATAR,
       },
+      email: {
+        type: String,
+        unique: true,
+        required: true,
+        dropDups: true,
+      },
+      password: {
+        type: String,
+        required: true,
+        select: false,
+      },
     },
     { versionKey: false },
+  ).static(
+    'findUserByCredentials',
+    async function _(email: string, password: string) {
+      const user = await this.findOne({ email }, {}, { runValidators: true }).select('+password');
+      if (!user || !await bcrypt.compare(password, user.password)) {
+        return Promise.reject(new UnauthorizedError(USER.LOGIN[HTTP_CODES.UNAUTHORIZED_401]));
+      }
+      return user;
+    },
   );
+
+  private createValidationSchema(
+    nameFields: string[] | string,
+    ...otherFields: string[]
+  ) {
+    const result = {} as TModelSettings<T, M>['validationSchema'][string];
+    const fields = (
+      typeof nameFields === 'string' ? [nameFields] : nameFields
+    ).concat(otherFields || []) as (keyof T)[];
+    fields.forEach((field) => {
+      result[field] = this.validationSchema.base[field];
+    });
+    return result;
+  }
 
   get model() {
     return mongoose.model<T, M>(this.nameModel, this.schema);
